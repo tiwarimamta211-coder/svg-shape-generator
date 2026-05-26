@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morphé — SVG Shape Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink: #0e0f13;
+  --ink2: #1a1b22;
+  --ink3: #252731;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --fog: #5a5d72;
+  --mist: #8b8fa8;
+  --cloud: #c4c7d8;
+  --snow: #f0f1f8;
+  --gold: #e8c97e;
+  --gold2: #f5dfa0;
+  --teal: #4fd1c5;
+  --rose: #f687b3;
+  --radius: 10px;
+  --serif: 'DM Serif Display', Georgia, serif;
+  --sans: 'Outfit', sans-serif;
+  --mono: 'DM Mono', monospace;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--sans);
+  background: var(--ink);
+  color: var(--snow);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* subtle grain overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.35;
+}
+
+/* ── HEADER ─────────────────────────────────────────── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 28px; border-bottom: 1px solid var(--border);
+  position: relative; z-index: 10; flex-shrink: 0;
+}
+.wordmark { font-family: var(--serif); font-size: 22px; letter-spacing: -0.3px; color: var(--snow); }
+.wordmark em { color: var(--gold); font-style: italic; }
+.header-tag {
+  font-size: 10px; font-weight: 500; letter-spacing: 2px;
+  color: var(--fog); text-transform: uppercase; font-family: var(--mono);
+}
+
+/* ── MAIN LAYOUT ────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: 300px 1fr 300px;
+  flex: 1; min-height: 0; position: relative; z-index: 1;
+}
+
+/* ── PANELS ─────────────────────────────────────────── */
+.panel {
+  background: var(--ink2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+
+.panel-head {
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.panel-title {
+  font-size: 9px; font-weight: 600; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--fog); font-family: var(--mono);
+}
+
+.panel-scroll { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 18px; }
+.panel-scroll::-webkit-scrollbar { width: 3px; }
+.panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.panel-scroll::-webkit-scrollbar-thumb { background: var(--ink3); border-radius: 2px; }
+
+/* ── CONTROL GROUPS ─────────────────────────────────── */
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group-label {
+  font-size: 10px; font-weight: 500; color: var(--mist);
+  text-transform: uppercase; letter-spacing: 1.5px; font-family: var(--mono);
+}
+
+/* Shape type tabs */
+.shape-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.shape-tab {
+  padding: 7px 4px; text-align: center; border-radius: 7px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--mist); cursor: pointer; font-family: var(--sans);
+  font-size: 11px; font-weight: 500; transition: all 0.15s;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.shape-tab .icon { font-size: 16px; line-height: 1; }
+.shape-tab:hover { border-color: var(--border2); color: var(--snow); background: var(--ink3); }
+.shape-tab.active { border-color: var(--gold); color: var(--gold); background: rgba(232,201,126,0.08); }
+
+/* Sliders */
+.slider-row { display: flex; flex-direction: column; gap: 4px; }
+.slider-meta { display: flex; justify-content: space-between; align-items: center; }
+.slider-name { font-size: 11px; color: var(--cloud); font-weight: 400; }
+.slider-val {
+  font-size: 11px; color: var(--gold); font-family: var(--mono);
+  font-weight: 500; min-width: 32px; text-align: right;
+}
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 3px; border-radius: 2px; outline: none;
+  background: var(--ink3); cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--gold);
+  border: 2px solid var(--ink2); cursor: pointer;
+  transition: transform 0.1s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+input[type=range].teal::-webkit-slider-thumb { background: var(--teal); }
+input[type=range].rose::-webkit-slider-thumb { background: var(--rose); }
+
+/* Color pickers */
+.color-row { display: flex; align-items: center; gap: 8px; }
+.color-swatch-wrap {
+  position: relative; width: 32px; height: 32px;
+  border-radius: 7px; border: 1px solid var(--border2);
+  overflow: hidden; cursor: pointer; flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.color-swatch-wrap:hover { border-color: var(--gold); }
+.color-swatch-wrap input[type=color] {
+  position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px);
+  border: none; cursor: pointer; padding: 0; opacity: 0;
+}
+.color-preview {
+  position: absolute; inset: 0; border-radius: 6px; pointer-events: none;
+}
+.color-hex {
+  font-family: var(--mono); font-size: 12px; color: var(--cloud);
+  background: var(--ink3); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 10px; flex: 1; outline: none;
+  transition: border-color 0.15s;
+}
+.color-hex:focus { border-color: var(--gold); color: var(--snow); }
+
+/* Gradient presets */
+.gradient-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.grad-preset {
+  height: 28px; border-radius: 6px; cursor: pointer;
+  border: 2px solid transparent; transition: border-color 0.15s, transform 0.1s;
+}
+.grad-preset:hover { transform: scale(1.05); }
+.grad-preset.active { border-color: var(--snow); }
+
+/* Toggles */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; }
+.toggle-label { font-size: 11px; color: var(--cloud); }
+.toggle {
+  position: relative; width: 34px; height: 18px;
+  background: var(--ink3); border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--border2); transition: background 0.2s;
+}
+.toggle.on { background: rgba(232,201,126,0.3); border-color: var(--gold); }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--fog); transition: transform 0.2s, background 0.2s;
+}
+.toggle.on::after { transform: translateX(16px); background: var(--gold); }
+
+/* Buttons */
+.btn {
+  padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border2);
+  background: var(--ink3); color: var(--cloud); font-family: var(--sans);
+  font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn:hover { border-color: var(--border2); color: var(--snow); background: var(--ink3); filter: brightness(1.2); }
+.btn-gold {
+  background: var(--gold); color: var(--ink); border-color: var(--gold);
+  font-weight: 600;
+}
+.btn-gold:hover { background: var(--gold2); border-color: var(--gold2); filter: none; }
+.btn-teal { background: rgba(79,209,197,0.15); color: var(--teal); border-color: rgba(79,209,197,0.3); }
+.btn-teal:hover { background: rgba(79,209,197,0.25); filter: none; }
+
+.btn-group { display: flex; gap: 6px; }
+.btn-group .btn { flex: 1; }
+
+/* ── CANVAS AREA ─────────────────────────────────────── */
+.canvas-area {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 0; background: #080a0e;
+  position: relative; overflow: hidden;
+}
+.canvas-bg-dots {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.canvas-wrap {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  padding: 24px;
+}
+#previewSvg {
+  display: block;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7);
+  background: transparent;
+  max-width: 100%;
+  transition: filter 0.3s;
+}
+.canvas-toolbar {
+  display: flex; gap: 8px; align-items: center;
+}
+.canvas-size-label {
+  font-family: var(--mono); font-size: 10px; color: var(--fog);
+}
+.randomize-btn {
+  padding: 8px 20px; border-radius: 8px;
+  background: linear-gradient(135deg, rgba(232,201,126,0.15), rgba(245,223,160,0.08));
+  border: 1px solid rgba(232,201,126,0.3); color: var(--gold);
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.randomize-btn:hover {
+  background: linear-gradient(135deg, rgba(232,201,126,0.25), rgba(245,223,160,0.15));
+  border-color: var(--gold); transform: translateY(-1px);
+}
+.randomize-btn:active { transform: translateY(0); }
+
+/* spin animation for randomize icon */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinning { animation: spin 0.4s ease; }
+
+/* ── CODE PANEL ─────────────────────────────────────── */
+.code-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.code-tabs { display: flex; gap: 4px; }
+.code-tab {
+  padding: 4px 10px; border-radius: 5px; font-family: var(--mono);
+  font-size: 10px; cursor: pointer; border: 1px solid transparent;
+  color: var(--fog); transition: all 0.15s;
+}
+.code-tab.active { background: var(--ink3); border-color: var(--border2); color: var(--cloud); }
+.code-tab:hover:not(.active) { color: var(--mist); }
+
+.code-block {
+  background: var(--ink); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; font-family: var(--mono);
+  font-size: 10.5px; color: #a8b3d0; line-height: 1.7;
+  overflow: auto; max-height: 320px; white-space: pre;
+  word-break: break-all; white-space: pre-wrap;
+  flex: 1;
+}
+.code-block::-webkit-scrollbar { width: 3px; height: 3px; }
+.code-block::-webkit-scrollbar-thumb { background: var(--ink3); border-radius: 2px; }
+
+.copy-toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--gold); color: var(--ink);
+  padding: 8px 20px; border-radius: 20px;
+  font-size: 12px; font-weight: 600; font-family: var(--sans);
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 999; pointer-events: none;
+}
+.copy-toast.show { transform: translateX(-50%) translateY(0); }
+
+/* animation pulse on preview */
+@keyframes morphPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+.morphing { animation: morphPulse 0.3s ease; }
+
+/* canvas size select */
+.size-select {
+  background: var(--ink3); border: 1px solid var(--border);
+  color: var(--mist); font-family: var(--mono); font-size: 10px;
+  padding: 5px 8px; border-radius: 6px; cursor: pointer; outline: none;
+}
+.size-select:focus { border-color: var(--gold); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">Morph<em>é</em></div>
+  <div class="header-tag">SVG Shape Generator</div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <select class="size-select" id="canvasSizeSelect" onchange="applyCanvasSize()">
+      <option value="600x400">600 × 400</option>
+      <option value="800x600" selected>800 × 600</option>
+      <option value="800x800">800 × 800</option>
+      <option value="1200x400">1200 × 400 (Banner)</option>
+      <option value="1920x400">1920 × 400 (Hero)</option>
+    </select>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- LEFT PANEL: Shape & Path -->
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">Shape & Path</div></div>
+    <div class="panel-scroll">
+
+      <div class="group">
+        <div class="group-label">Shape Type</div>
+        <div class="shape-tabs">
+          <button class="shape-tab active" data-shape="blob" onclick="setShape('blob',this)">
+            <span class="icon">⬟</span>Blob
+          </button>
+          <button class="shape-tab" data-shape="wave" onclick="setShape('wave',this)">
+            <span class="icon">〰</span>Wave
+          </button>
+          <button class="shape-tab" data-shape="spiky" onclick="setShape('spiky',this)">
+            <span class="icon">✳</span>Spiky
+          </button>
+          <button class="shape-tab" data-shape="polygon" onclick="setShape('polygon',this)">
+            <span class="icon">⬡</span>Polygon
+          </button>
+          <button class="shape-tab" data-shape="ring" onclick="setShape('ring',this)">
+            <span class="icon">◎</span>Ring
+          </button>
+          <button class="shape-tab" data-shape="starburst" onclick="setShape('starburst',this)">
+            <span class="icon">✦</span>Star
+          </button>
+        </div>
+      </div>
+
+      <!-- BLOB CONTROLS -->
+      <div class="group" id="ctrl-blob">
+        <div class="group-label">Blob Controls</div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Points</span><span class="slider-val" id="val-blobPoints">6</span></div>
+          <input type="range" id="blobPoints" min="3" max="12" value="6" oninput="syncVal('blobPoints','val-blobPoints');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Roundness</span><span class="slider-val" id="val-blobRound">80</span></div>
+          <input type="range" id="blobRound" min="0" max="100" value="80" oninput="syncVal('blobRound','val-blobRound');generate()">
+        </div>
+      </div>
+
+      <!-- WAVE CONTROLS -->
+      <div class="group" id="ctrl-wave" style="display:none">
+        <div class="group-label">Wave Controls</div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Amplitude</span><span class="slider-val" id="val-waveAmp">60</span></div>
+          <input type="range" id="waveAmp" min="5" max="200" value="60" oninput="syncVal('waveAmp','val-waveAmp');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Frequency</span><span class="slider-val" id="val-waveFreq">3</span></div>
+          <input type="range" id="waveFreq" min="1" max="12" value="3" oninput="syncVal('waveFreq','val-waveFreq');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Fill Height %</span><span class="slider-val" id="val-waveFill">50</span></div>
+          <input type="range" id="waveFill" min="10" max="90" value="50" oninput="syncVal('waveFill','val-waveFill');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Smoothness</span><span class="slider-val" id="val-waveSmooth">80</span></div>
+          <input type="range" class="teal" id="waveSmooth" min="0" max="100" value="80" oninput="syncVal('waveSmooth','val-waveSmooth');generate()">
+        </div>
+      </div>
+
+      <!-- SPIKY CONTROLS -->
+      <div class="group" id="ctrl-spiky" style="display:none">
+        <div class="group-label">Spiky Controls</div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Spikes</span><span class="slider-val" id="val-spikyCount">8</span></div>
+          <input type="range" id="spikyCount" min="3" max="20" value="8" oninput="syncVal('spikyCount','val-spikyCount');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Depth</span><span class="slider-val" id="val-spikyDepth">40</span></div>
+          <input type="range" id="spikyDepth" min="5" max="80" value="40" oninput="syncVal('spikyDepth','val-spikyDepth');generate()">
+        </div>
+      </div>
+
+      <!-- POLYGON CONTROLS -->
+      <div class="group" id="ctrl-polygon" style="display:none">
+        <div class="group-label">Polygon Controls</div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Sides</span><span class="slider-val" id="val-polySides">6</span></div>
+          <input type="range" id="polySides" min="3" max="12" value="6" oninput="syncVal('polySides','val-polySides');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Corner Radius</span><span class="slider-val" id="val-polyRadius">0</span></div>
+          <input type="range" class="teal" id="polyRadius" min="0" max="50" value="0" oninput="syncVal('polyRadius','val-polyRadius');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Rotation °</span><span class="slider-val" id="val-polyRot">0</span></div>
+          <input type="range" id="polyRot" min="0" max="360" value="0" oninput="syncVal('polyRot','val-polyRot');generate()">
+        </div>
+      </div>
+
+      <!-- RING CONTROLS -->
+      <div class="group" id="ctrl-ring" style="display:none">
+        <div class="group-label">Ring Controls</div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Inner Radius %</span><span class="slider-val" id="val-ringInner">60</span></div>
+          <input type="range" id="ringInner" min="10" max="90" value="60" oninput="syncVal('ringInner','val-ringInner');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Segments</span><span class="slider-val" id="val-ringSegs">0</span></div>
+          <input type="range" class="teal" id="ringSegs" min="0" max="12" value="0" oninput="syncVal('ringSegs','val-ringSegs');generate()">
+        </div>
+      </div>
+
+      <!-- STARBURST CONTROLS -->
+      <div class="group" id="ctrl-starburst" style="display:none">
+        <div class="group-label">Star Controls</div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Points</span><span class="slider-val" id="val-starPoints">5</span></div>
+          <input type="range" id="starPoints" min="3" max="16" value="5" oninput="syncVal('starPoints','val-starPoints');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Inner Ratio %</span><span class="slider-val" id="val-starInner">40</span></div>
+          <input type="range" id="starInner" min="5" max="90" value="40" oninput="syncVal('starInner','val-starInner');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Roundness</span><span class="slider-val" id="val-starRound">0</span></div>
+          <input type="range" class="rose" id="starRound" min="0" max="100" value="0" oninput="syncVal('starRound','val-starRound');generate()">
+        </div>
+      </div>
+
+      <!-- RANDOMNESS -->
+      <div class="group">
+        <div class="group-label">Randomness</div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Amount</span><span class="slider-val" id="val-randomness">30</span></div>
+          <input type="range" class="rose" id="randomness" min="0" max="100" value="30" oninput="syncVal('randomness','val-randomness');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Scale X</span><span class="slider-val" id="val-scaleX">100</span></div>
+          <input type="range" id="scaleX" min="20" max="160" value="100" oninput="syncVal('scaleX','val-scaleX');generate()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Scale Y</span><span class="slider-val" id="val-scaleY">100</span></div>
+          <input type="range" id="scaleY" min="20" max="160" value="100" oninput="syncVal('scaleY','val-scaleY');generate()">
+        </div>
+      </div>
+
+      <button class="randomize-btn" style="width:100%" onclick="fullRandomize()">
+        <span id="randIcon">⟳</span> Randomize Everything
+      </button>
+
+    </div>
+  </div>
+
+  <!-- CENTER: CANVAS -->
+  <div class="canvas-area">
+    <div class="canvas-bg-dots"></div>
+    <div class="canvas-wrap">
+      <svg id="previewSvg" width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="shapeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" id="gradStop1" stop-color="#e8c97e"/>
+            <stop offset="100%" id="gradStop2" stop-color="#f687b3"/>
+          </linearGradient>
+          <radialGradient id="shapeRadGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" id="radStop1" stop-color="#4fd1c5"/>
+            <stop offset="100%" id="radStop2" stop-color="#9f7aea"/>
+          </radialGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="8" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="softblur">
+            <feGaussianBlur stdDeviation="3"/>
+          </filter>
+        </defs>
+        <rect id="svgBg" width="800" height="600" fill="transparent"/>
+        <g id="shapeGroup">
+          <path id="mainShape" d="" fill="url(#shapeGrad)" opacity="1"/>
+          <path id="secondShape" d="" fill="url(#shapeGrad)" opacity="0.3" style="display:none"/>
+        </g>
+      </svg>
+
+      <div class="canvas-toolbar">
+        <button class="randomize-btn" onclick="fullRandomize()">
+          <span>⟳</span> New Seed
+        </button>
+        <span class="canvas-size-label" id="sizeLabel">800 × 600</span>
+        <button class="btn btn-teal" onclick="downloadSVG()" style="padding:8px 16px;font-size:11px">⬇ Download SVG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: Color & Code -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="code-header">
+        <div class="panel-title">Color & Export</div>
+      </div>
+    </div>
+    <div class="panel-scroll">
+
+      <!-- GRADIENT TYPE -->
+      <div class="group">
+        <div class="group-label">Gradient Type</div>
+        <div class="btn-group">
+          <button class="btn active" id="gradTypeLinear" onclick="setGradType('linear',this)">Linear</button>
+          <button class="btn" id="gradTypeRadial" onclick="setGradType('radial',this)">Radial</button>
+          <button class="btn" id="gradTypeSolid" onclick="setGradType('solid',this)">Solid</button>
+        </div>
+      </div>
+
+      <!-- COLORS -->
+      <div class="group">
+        <div class="group-label">Colors</div>
+        <div class="color-row">
+          <div class="color-swatch-wrap" id="swatch1">
+            <div class="color-preview" id="preview1" style="background:#e8c97e"></div>
+            <input type="color" id="color1" value="#e8c97e" oninput="updateColor1(this.value)">
+          </div>
+          <input class="color-hex" id="hex1" value="#e8c97e" maxlength="7" oninput="hexInput1(this.value)">
+        </div>
+        <div class="color-row" id="color2row">
+          <div class="color-swatch-wrap" id="swatch2">
+            <div class="color-preview" id="preview2" style="background:#f687b3"></div>
+            <input type="color" id="color2" value="#f687b3" oninput="updateColor2(this.value)">
+          </div>
+          <input class="color-hex" id="hex2" value="#f687b3" maxlength="7" oninput="hexInput2(this.value)">
+        </div>
+      </div>
+
+      <!-- GRADIENT ANGLE -->
+      <div class="group" id="gradAngleGroup">
+        <div class="group-label">Gradient Angle</div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Angle</span><span class="slider-val" id="val-gradAngle">135°</span></div>
+          <input type="range" id="gradAngle" min="0" max="360" value="135" oninput="updateGradAngle(this.value)">
+        </div>
+      </div>
+
+      <!-- GRADIENT PRESETS -->
+      <div class="group">
+        <div class="group-label">Gradient Presets</div>
+        <div class="gradient-presets" id="gradientPresets">
+          <div class="grad-preset active" style="background:linear-gradient(135deg,#e8c97e,#f687b3)" onclick="applyGradPreset('#e8c97e','#f687b3',this)"></div>
+          <div class="grad-preset" style="background:linear-gradient(135deg,#4fd1c5,#9f7aea)" onclick="applyGradPreset('#4fd1c5','#9f7aea',this)"></div>
+          <div class="grad-preset" style="background:linear-gradient(135deg,#fc8181,#f6ad55)" onclick="applyGradPreset('#fc8181','#f6ad55',this)"></div>
+          <div class="grad-preset" style="background:linear-gradient(135deg,#63b3ed,#76e4f7)" onclick="applyGradPreset('#63b3ed','#76e4f7',this)"></div>
+          <div class="grad-preset" style="background:linear-gradient(135deg,#68d391,#4fd1c5)" onclick="applyGradPreset('#68d391','#4fd1c5',this)"></div>
+          <div class="grad-preset" style="background:linear-gradient(135deg,#a78bfa,#f687b3)" onclick="applyGradPreset('#a78bfa','#f687b3',this)"></div>
+          <div class="grad-preset" style="background:linear-gradient(135deg,#f6e05e,#48bb78)" onclick="applyGradPreset('#f6e05e','#48bb78',this)"></div>
+          <div class="grad-preset" style="background:linear-gradient(135deg,#fc8181,#a78bfa)" onclick="applyGradPreset('#fc8181','#a78bfa',this)"></div>
+        </div>
+      </div>
+
+      <!-- APPEARANCE -->
+      <div class="group">
+        <div class="group-label">Appearance</div>
+        <div class="slider-row">
+          <div class="slider-meta"><span class="slider-name">Opacity</span><span class="slider-val" id="val-shapeOpacity">100</span></div>
+          <input type="range" id="shapeOpacity" min="10" max="100" value="100" oninput="syncVal('shapeOpacity','val-shapeOpacity');updateAppearance()">
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Stroke / Outline</span>
+          <div class="toggle" id="strokeToggle" onclick="toggleStroke()"></div>
+        </div>
+        <div id="strokeControls" style="display:none">
+          <div class="color-row" style="margin-top:8px">
+            <div class="color-swatch-wrap">
+              <div class="color-preview" id="strokePreview" style="background:#ffffff"></div>
+              <input type="color" id="strokeColor" value="#ffffff" oninput="updateStrokeColor(this.value)">
+            </div>
+            <input class="color-hex" id="strokeHex" value="#ffffff" maxlength="7">
+          </div>
+          <div class="slider-row" style="margin-top:8px">
+            <div class="slider-meta"><span class="slider-name">Width</span><span class="slider-val" id="val-strokeWidth">2</span></div>
+            <input type="range" id="strokeWidth" min="0.5" max="20" step="0.5" value="2" oninput="syncVal('strokeWidth','val-strokeWidth');updateAppearance()">
+          </div>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Glow Effect</span>
+          <div class="toggle" id="glowToggle" onclick="toggleGlow()"></div>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Background Color</span>
+          <div class="toggle" id="bgToggle" onclick="toggleBg()"></div>
+        </div>
+        <div id="bgControls" style="display:none;margin-top:8px">
+          <div class="color-row">
+            <div class="color-swatch-wrap">
+              <div class="color-preview" id="bgPreview" style="background:#1a1b22"></div>
+              <input type="color" id="bgColor" value="#1a1b22" oninput="updateBgColor(this.value)">
+            </div>
+            <input class="color-hex" id="bgHex" value="#1a1b22" maxlength="7">
+          </div>
+        </div>
+      </div>
+
+      <!-- CODE EXPORT -->
+      <div class="group">
+        <div class="group-label" style="display:flex;justify-content:space-between;align-items:center">
+          <span>SVG Code</span>
+          <div class="code-tabs">
+            <div class="code-tab active" onclick="setCodeTab('svg',this)">SVG</div>
+            <div class="code-tab" onclick="setCodeTab('css',this)">CSS BG</div>
+            <div class="code-tab" onclick="setCodeTab('react',this)">JSX</div>
+          </div>
+        </div>
+        <div class="code-block" id="codeBlock"></div>
+        <div class="btn-group">
+          <button class="btn btn-gold" onclick="copyCode()">⧉ Copy Code</button>
+          <button class="btn" onclick="downloadSVG()">⬇ SVG</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="copy-toast" id="copyToast">Copied to clipboard!</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────
+let currentShape = 'blob';
+let gradType = 'linear';
+let strokeOn = false, glowOn = false, bgOn = false;
+let svgW = 800, svgH = 600;
+let currentSeed = Math.random();
+let codeTab = 'svg';
+let lastPath = '';
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function syncVal(id, valId) {
+  document.getElementById(valId).textContent = document.getElementById(id).value;
+}
+
+function v(id) { return parseFloat(document.getElementById(id).value); }
+
+function seededRand(seed) {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function makeRand(seed) {
+  let s = seed;
+  return () => { s += 0.618; return seededRand(s); };
+}
+
+// ── SHAPE FUNCTIONS ───────────────────────────────────────────────────────
+function generateBlob(cx, cy, rx, ry, points, roundness, randomness, rand) {
+  const n = Math.round(points);
+  const rFactor = randomness / 100;
+  const smooth = roundness / 100;
+  const pts = [];
+
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const r = 1 + (rand() - 0.5) * 2 * rFactor * 0.6;
+    const px = cx + Math.cos(angle) * rx * r * (v('scaleX') / 100);
+    const py = cy + Math.sin(angle) * ry * r * (v('scaleY') / 100);
+    pts.push({ x: px, y: py });
+  }
+
+  if (smooth < 0.05) {
+    return 'M' + pts.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' L') + ' Z';
+  }
+
+  // Smooth bezier through points
+  let d = '';
+  const len = pts.length;
+  for (let i = 0; i < len; i++) {
+    const p0 = pts[(i - 1 + len) % len];
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % len];
+    const p3 = pts[(i + 2) % len];
+
+    const t = smooth * 0.5;
+    const cp1x = p1.x + (p2.x - p0.x) * t;
+    const cp1y = p1.y + (p2.y - p0.y) * t;
+    const cp2x = p2.x - (p3.x - p1.x) * t;
+    const cp2y = p2.y - (p3.y - p1.y) * t;
+
+    if (i === 0) d += `M ${p1.x.toFixed(2)},${p1.y.toFixed(2)} `;
+    d += `C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)} `;
+  }
+  return d + 'Z';
+}
+
+function generateWave() {
+  const amp = v('waveAmp');
+  const freq = v('waveFreq');
+  const fillH = v('waveFill') / 100;
+  const smooth = v('waveSmooth') / 100;
+  const rand = makeRand(currentSeed);
+  const randomness = v('randomness') / 100;
+  const W = svgW, H = svgH;
+  const baseY = H * (1 - fillH);
+  const steps = Math.round(freq * 8);
+  const pts = [];
+
+  for (let i = 0; i <= steps; i++) {
+    const x = (i / steps) * W;
+    const wave = Math.sin((i / steps) * Math.PI * 2 * freq) * amp;
+    const noise = (rand() - 0.5) * amp * randomness * 1.5;
+    pts.push({ x, y: baseY + wave + noise });
+  }
+
+  let d = `M 0,${H} L ${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)} `;
+  if (smooth > 0.1) {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const cp1x = pts[i].x + (pts[i + 1].x - pts[i].x) * smooth * 0.5;
+      const cp1y = pts[i].y;
+      const cp2x = pts[i + 1].x - (pts[i + 1].x - pts[i].x) * smooth * 0.5;
+      const cp2y = pts[i + 1].y;
+      d += `C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${pts[i + 1].x.toFixed(2)},${pts[i + 1].y.toFixed(2)} `;
+    }
+  } else {
+    pts.forEach(p => d += `L ${p.x.toFixed(2)},${p.y.toFixed(2)} `);
+  }
+  d += `L ${W},${H} Z`;
+  return d;
+}
+
+function generateSpiky(cx, cy, r, spikes, depth, randomness, rand) {
+  const n = Math.round(spikes);
+  const rFactor = randomness / 100;
+  let d = '';
+  for (let i = 0; i < n * 2; i++) {
+    const angle = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2;
+    const isOuter = i % 2 === 0;
+    const baseR = isOuter ? r : r * (1 - depth / 100);
+    const noise = (rand() - 0.5) * rFactor * r * 0.4;
+    const pr = baseR + noise;
+    const px = cx + Math.cos(angle) * pr * (v('scaleX') / 100);
+    const py = cy + Math.sin(angle) * pr * (v('scaleY') / 100);
+    d += (i === 0 ? 'M ' : 'L ') + `${px.toFixed(2)},${py.toFixed(2)} `;
+  }
+  return d + 'Z';
+}
+
+function generatePolygon(cx, cy, r, sides, rotation, randomness, rand) {
+  const n = Math.round(sides);
+  const rFactor = randomness / 100;
+  const rotRad = (rotation * Math.PI) / 180;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 + rotRad - Math.PI / 2;
+    const noise = (rand() - 0.5) * rFactor * r * 0.5;
+    const pr = r + noise;
+    pts.push({
+      x: cx + Math.cos(angle) * pr * (v('scaleX') / 100),
+      y: cy + Math.sin(angle) * pr * (v('scaleY') / 100)
+    });
+  }
+
+  const cornerR = v('polyRadius');
+  if (cornerR < 1) {
+    return 'M ' + pts.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' L ') + ' Z';
+  }
+
+  // Rounded corners
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n];
+    const curr = pts[i];
+    const next = pts[(i + 1) % n];
+    const dist = Math.hypot(next.x - curr.x, next.y - curr.y);
+    const t = Math.min(cornerR / dist, 0.45);
+    const p1 = { x: curr.x + (prev.x - curr.x) * t, y: curr.y + (prev.y - curr.y) * t };
+    const p2 = { x: curr.x + (next.x - curr.x) * t, y: curr.y + (next.y - curr.y) * t };
+    if (i === 0) d += `M ${p1.x.toFixed(2)},${p1.y.toFixed(2)} `;
+    d += `L ${p1.x.toFixed(2)},${p1.y.toFixed(2)} Q ${curr.x.toFixed(2)},${curr.y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)} `;
+  }
+  return d + 'Z';
+}
+
+function generateRing(cx, cy, outerR, innerRatio, segs, randomness, rand) {
+  const rFactor = randomness / 100;
+  const innerR = outerR * (innerRatio / 100);
+  const segments = Math.round(segs);
+
+  if (segments < 1) {
+    // Smooth ring using path with inner cutout
+    const noiseO = (rand() - 0.5) * rFactor * outerR * 0.15;
+    return `M ${cx + outerR + noiseO},${cy} A ${outerR},${outerR} 0 1 0 ${cx - outerR},${cy} A ${outerR},${outerR} 0 1 0 ${cx + outerR},${cy} Z M ${cx + innerR},${cy} A ${innerR},${innerR} 0 1 1 ${cx - innerR},${cy} A ${innerR},${innerR} 0 1 1 ${cx + innerR},${cy} Z`;
+  }
+
+  let d = '';
+  for (let s = 0; s < segments; s++) {
+    const a1 = (s / segments) * Math.PI * 2;
+    const a2 = ((s + 0.82) / segments) * Math.PI * 2;
+    const x1o = cx + Math.cos(a1) * outerR, y1o = cy + Math.sin(a1) * outerR;
+    const x2o = cx + Math.cos(a2) * outerR, y2o = cy + Math.sin(a2) * outerR;
+    const x1i = cx + Math.cos(a2) * innerR, y1i = cy + Math.sin(a2) * innerR;
+    const x2i = cx + Math.cos(a1) * innerR, y2i = cy + Math.sin(a1) * innerR;
+    const large = a2 - a1 > Math.PI ? 1 : 0;
+    d += `M ${x1o.toFixed(2)},${y1o.toFixed(2)} A ${outerR},${outerR} 0 ${large} 1 ${x2o.toFixed(2)},${y2o.toFixed(2)} L ${x1i.toFixed(2)},${y1i.toFixed(2)} A ${innerR},${innerR} 0 ${large} 0 ${x2i.toFixed(2)},${y2i.toFixed(2)} Z `;
+  }
+  return d;
+}
+
+function generateStarburst(cx, cy, outerR, innerRatio, points, roundness, randomness, rand) {
+  const n = Math.round(points);
+  const innerR = outerR * (innerRatio / 100);
+  const rFactor = randomness / 100;
+  const round = roundness / 100;
+
+  const pts = [];
+  for (let i = 0; i < n * 2; i++) {
+    const angle = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2;
+    const isOuter = i % 2 === 0;
+    const base = isOuter ? outerR : innerR;
+    const noise = (rand() - 0.5) * rFactor * outerR * 0.3;
+    pts.push({
+      x: cx + Math.cos(angle) * (base + noise) * (v('scaleX') / 100),
+      y: cy + Math.sin(angle) * (base + noise) * (v('scaleY') / 100)
+    });
+  }
+
+  if (round < 0.05) {
+    return 'M ' + pts.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' L ') + ' Z';
+  }
+
+  let d = '';
+  const len = pts.length;
+  for (let i = 0; i < len; i++) {
+    const p0 = pts[(i - 1 + len) % len];
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % len];
+    const p3 = pts[(i + 2) % len];
+    const t = round * 0.35;
+    const cp1x = p1.x + (p2.x - p0.x) * t;
+    const cp1y = p1.y + (p2.y - p0.y) * t;
+    const cp2x = p2.x - (p3.x - p1.x) * t;
+    const cp2y = p2.y - (p3.y - p1.y) * t;
+    if (i === 0) d += `M ${p1.x.toFixed(2)},${p1.y.toFixed(2)} `;
+    d += `C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)} `;
+  }
+  return d + 'Z';
+}
+
+// ── MAIN GENERATE ─────────────────────────────────────────────────────────
+function generate() {
+  const rand = makeRand(currentSeed * 100 + Math.random() * 0.0001);
+  // Use stable rand per seed
+  const stableRand = makeRand(currentSeed * 137.508);
+
+  const cx = svgW / 2, cy = svgH / 2;
+  const rx = Math.min(svgW, svgH) * 0.38 * (v('scaleX') / 100);
+  const ry = Math.min(svgW, svgH) * 0.38 * (v('scaleY') / 100);
+  const r = Math.min(svgW, svgH) * 0.36;
+  const randomness = v('randomness');
+
+  let d = '';
+  switch (currentShape) {
+    case 'blob':
+      d = generateBlob(cx, cy, rx, ry, v('blobPoints'), v('blobRound'), randomness, stableRand);
+      break;
+    case 'wave':
+      d = generateWave();
+      break;
+    case 'spiky':
+      d = generateSpiky(cx, cy, r, v('spikyCount'), v('spikyDepth'), randomness, stableRand);
+      break;
+    case 'polygon':
+      d = generatePolygon(cx, cy, r, v('polySides'), v('polyRot'), randomness, stableRand);
+      break;
+    case 'ring':
+      d = generateRing(cx, cy, r, v('ringInner'), v('ringSegs'), randomness, stableRand);
+      break;
+    case 'starburst':
+      d = generateStarburst(cx, cy, r, v('starInner'), v('starPoints'), v('starRound'), randomness, stableRand);
+      break;
+  }
+
+  lastPath = d;
+  document.getElementById('mainShape').setAttribute('d', d);
+  updateAppearance();
+  updateCode();
+}
+
+// ── APPEARANCE ────────────────────────────────────────────────────────────
+function updateAppearance() {
+  const shape = document.getElementById('mainShape');
+  const opacity = v('shapeOpacity') / 100;
+  shape.setAttribute('opacity', opacity);
+
+  if (gradType === 'linear') {
+    shape.setAttribute('fill', 'url(#shapeGrad)');
+  } else if (gradType === 'radial') {
+    shape.setAttribute('fill', 'url(#shapeRadGrad)');
+  } else {
+    shape.setAttribute('fill', document.getElementById('color1').value);
+  }
+
+  if (strokeOn) {
+    shape.setAttribute('stroke', document.getElementById('strokeColor').value);
+    shape.setAttribute('stroke-width', v('strokeWidth'));
+    shape.setAttribute('stroke-linejoin', 'round');
+  } else {
+    shape.removeAttribute('stroke');
+    shape.removeAttribute('stroke-width');
+  }
+
+  shape.setAttribute('filter', glowOn ? 'url(#glow)' : '');
+  updateCode();
+}
+
+function setGradType(type, btn) {
+  gradType = type;
+  document.querySelectorAll('#gradTypeLinear,#gradTypeRadial,#gradTypeSolid').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('color2row').style.display = type === 'solid' ? 'none' : '';
+  document.getElementById('gradAngleGroup').style.display = type === 'radial' || type === 'solid' ? 'none' : '';
+  updateAppearance();
+}
+
+function updateColor1(hex) {
+  document.getElementById('preview1').style.background = hex;
+  document.getElementById('hex1').value = hex;
+  document.getElementById('gradStop1').setAttribute('stop-color', hex);
+  document.getElementById('radStop1').setAttribute('stop-color', hex);
+  if (gradType === 'solid') document.getElementById('mainShape').setAttribute('fill', hex);
+  updateCode();
+}
+function updateColor2(hex) {
+  document.getElementById('preview2').style.background = hex;
+  document.getElementById('hex2').value = hex;
+  document.getElementById('gradStop2').setAttribute('stop-color', hex);
+  document.getElementById('radStop2').setAttribute('stop-color', hex);
+  updateCode();
+}
+function hexInput1(v) { if(/^#[0-9a-fA-F]{6}$/.test(v)){document.getElementById('color1').value=v;updateColor1(v);} }
+function hexInput2(v) { if(/^#[0-9a-fA-F]{6}$/.test(v)){document.getElementById('color2').value=v;updateColor2(v);} }
+
+function applyGradPreset(c1, c2, el) {
+  document.querySelectorAll('.grad-preset').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('color1').value = c1;
+  document.getElementById('color2').value = c2;
+  updateColor1(c1); updateColor2(c2);
+}
+
+function updateGradAngle(angle) {
+  document.getElementById('val-gradAngle').textContent = angle + '°';
+  const rad = (angle * Math.PI) / 180;
+  const x2 = (50 + Math.cos(rad) * 50).toFixed(1) + '%';
+  const y2 = (50 + Math.sin(rad) * 50).toFixed(1) + '%';
+  const x1 = (50 - Math.cos(rad) * 50).toFixed(1) + '%';
+  const y1 = (50 - Math.sin(rad) * 50).toFixed(1) + '%';
+  const grad = document.getElementById('shapeGrad');
+  grad.setAttribute('x1', x1); grad.setAttribute('y1', y1);
+  grad.setAttribute('x2', x2); grad.setAttribute('y2', y2);
+  updateCode();
+}
+
+function toggleStroke() {
+  strokeOn = !strokeOn;
+  document.getElementById('strokeToggle').classList.toggle('on', strokeOn);
+  document.getElementById('strokeControls').style.display = strokeOn ? '' : 'none';
+  updateAppearance();
+}
+function toggleGlow() {
+  glowOn = !glowOn;
+  document.getElementById('glowToggle').classList.toggle('on', glowOn);
+  updateAppearance();
+}
+function toggleBg() {
+  bgOn = !bgOn;
+  document.getElementById('bgToggle').classList.toggle('on', bgOn);
+  document.getElementById('bgControls').style.display = bgOn ? '' : 'none';
+  const bg = document.getElementById('svgBg');
+  bg.setAttribute('fill', bgOn ? document.getElementById('bgColor').value : 'transparent');
+  updateCode();
+}
+function updateBgColor(hex) {
+  document.getElementById('bgPreview').style.background = hex;
+  document.getElementById('bgHex').value = hex;
+  if (bgOn) document.getElementById('svgBg').setAttribute('fill', hex);
+  updateCode();
+}
+function updateStrokeColor(hex) {
+  document.getElementById('strokePreview').style.background = hex;
+  document.getElementById('strokeHex').value = hex;
+  updateAppearance();
+}
+
+// ── CODE EXPORT ───────────────────────────────────────────────────────────
+function setCodeTab(tab, el) {
+  codeTab = tab;
+  document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  updateCode();
+}
+
+function buildSVGCode() {
+  const c1 = document.getElementById('color1').value;
+  const c2 = document.getElementById('color2').value;
+  const opacity = v('shapeOpacity') / 100;
+  const strokeStr = strokeOn ? ` stroke="${document.getElementById('strokeColor').value}" stroke-width="${v('strokeWidth')}" stroke-linejoin="round"` : '';
+  const filterStr = glowOn ? ' filter="url(#glow)"' : '';
+  const bgFill = bgOn ? document.getElementById('bgColor').value : 'transparent';
+  const angle = v('gradAngle');
+  const rad = (angle * Math.PI) / 180;
+  const x1 = (50 - Math.cos(rad) * 50).toFixed(1), y1 = (50 - Math.sin(rad) * 50).toFixed(1);
+  const x2 = (50 + Math.cos(rad) * 50).toFixed(1), y2 = (50 + Math.sin(rad) * 50).toFixed(1);
+
+  let defsInner = '';
+  if (gradType === 'linear') {
+    defsInner = `\n    <linearGradient id="grad" x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%">\n      <stop offset="0%" stop-color="${c1}"/>\n      <stop offset="100%" stop-color="${c2}"/>\n    </linearGradient>`;
+  } else if (gradType === 'radial') {
+    defsInner = `\n    <radialGradient id="grad" cx="50%" cy="50%" r="50%">\n      <stop offset="0%" stop-color="${c1}"/>\n      <stop offset="100%" stop-color="${c2}"/>\n    </radialGradient>`;
+  }
+  if (glowOn) {
+    defsInner += `\n    <filter id="glow">\n      <feGaussianBlur stdDeviation="8" result="blur"/>\n      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>\n    </filter>`;
+  }
+
+  const fillAttr = gradType === 'solid' ? `fill="${c1}"` : `fill="url(#grad)"`;
+  const defsStr = defsInner ? `  <defs>${defsInner}\n  </defs>\n` : '';
+  const bgStr = bgOn ? `  <rect width="${svgW}" height="${svgH}" fill="${bgFill}"/>\n` : '';
+
+  return `<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">\n${defsStr}${bgStr}  <path\n    d="${lastPath}"\n    ${fillAttr}\n    opacity="${opacity}"${strokeStr}${filterStr}\n  />\n</svg>`;
+}
+
+function buildCSSCode() {
+  const svg = buildSVGCode();
+  const encoded = encodeURIComponent(svg);
+  return `.element {\n  background-image: url("data:image/svg+xml,${encoded}");\n  background-size: cover;\n  background-repeat: no-repeat;\n}`;
+}
+
+function buildJSXCode() {
+  const c1 = document.getElementById('color1').value;
+  const c2 = document.getElementById('color2').value;
+  const opacity = v('shapeOpacity') / 100;
+  const fillAttr = gradType === 'solid' ? `fill="${c1}"` : `fill="url(#grad)"`;
+  return `export function Shape({ className }) {\n  return (\n    <svg\n      width="${svgW}"\n      height="${svgH}"\n      viewBox="0 0 ${svgW} ${svgH}"\n      className={className}\n      xmlns="http://www.w3.org/2000/svg"\n    >\n      <defs>\n        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">\n          <stop offset="0%" stopColor="${c1}" />\n          <stop offset="100%" stopColor="${c2}" />\n        </linearGradient>\n      </defs>\n      <path\n        d="${lastPath}"\n        ${fillAttr}\n        opacity={${opacity}}\n      />\n    </svg>\n  );\n}`;
+}
+
+function updateCode() {
+  let code = '';
+  if (codeTab === 'svg') code = buildSVGCode();
+  else if (codeTab === 'css') code = buildCSSCode();
+  else code = buildJSXCode();
+  document.getElementById('codeBlock').textContent = code;
+}
+
+function copyCode() {
+  const text = document.getElementById('codeBlock').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const toast = document.getElementById('copyToast');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  });
+}
+
+function downloadSVG() {
+  const svg = buildSVGCode();
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `morphe-${currentShape}-${Date.now()}.svg`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ── SHAPE SWITCHING ───────────────────────────────────────────────────────
+function setShape(shape, btn) {
+  currentShape = shape;
+  document.querySelectorAll('.shape-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['blob','wave','spiky','polygon','ring','starburst'].forEach(s => {
+    const el = document.getElementById('ctrl-' + s);
+    if (el) el.style.display = s === shape ? '' : 'none';
+  });
+  generate();
+}
+
+// ── RANDOMIZE ─────────────────────────────────────────────────────────────
+function fullRandomize() {
+  currentSeed = Math.random() * 9999;
+  const icon = document.getElementById('randIcon');
+  if (icon) { icon.classList.add('spinning'); setTimeout(() => icon.classList.remove('spinning'), 400); }
+
+  // Randomize controls based on shape
+  document.getElementById('randomness').value = Math.floor(Math.random() * 70 + 10);
+  document.getElementById('val-randomness').textContent = document.getElementById('randomness').value;
+
+  if (currentShape === 'blob') {
+    document.getElementById('blobPoints').value = Math.floor(Math.random() * 8 + 3);
+    document.getElementById('val-blobPoints').textContent = document.getElementById('blobPoints').value;
+    document.getElementById('blobRound').value = Math.floor(Math.random() * 80 + 20);
+    document.getElementById('val-blobRound').textContent = document.getElementById('blobRound').value;
+  } else if (currentShape === 'wave') {
+    document.getElementById('waveAmp').value = Math.floor(Math.random() * 150 + 20);
+    document.getElementById('val-waveAmp').textContent = document.getElementById('waveAmp').value;
+    document.getElementById('waveFreq').value = Math.floor(Math.random() * 8 + 1);
+    document.getElementById('val-waveFreq').textContent = document.getElementById('waveFreq').value;
+  } else if (currentShape === 'spiky') {
+    document.getElementById('spikyCount').value = Math.floor(Math.random() * 14 + 4);
+    document.getElementById('val-spikyCount').textContent = document.getElementById('spikyCount').value;
+    document.getElementById('spikyDepth').value = Math.floor(Math.random() * 60 + 15);
+    document.getElementById('val-spikyDepth').textContent = document.getElementById('spikyDepth').value;
+  }
+
+  // Random gradient preset
+  const presets = [
+    ['#e8c97e','#f687b3'],['#4fd1c5','#9f7aea'],['#fc8181','#f6ad55'],
+    ['#63b3ed','#76e4f7'],['#68d391','#4fd1c5'],['#a78bfa','#f687b3'],
+    ['#f6e05e','#48bb78'],['#fc8181','#a78bfa']
+  ];
+  const [c1, c2] = presets[Math.floor(Math.random() * presets.length)];
+  document.getElementById('color1').value = c1;
+  document.getElementById('color2').value = c2;
+  updateColor1(c1); updateColor2(c2);
+
+  generate();
+}
+
+// ── CANVAS SIZE ───────────────────────────────────────────────────────────
+function applyCanvasSize() {
+  const val = document.getElementById('canvasSizeSelect').value;
+  const [w, h] = val.split('x').map(Number);
+  svgW = w; svgH = h;
+  const svg = document.getElementById('previewSvg');
+  svg.setAttribute('width', w); svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  document.getElementById('svgBg').setAttribute('width', w);
+  document.getElementById('svgBg').setAttribute('height', h);
+  document.getElementById('sizeLabel').textContent = `${w} × ${h}`;
+  generate();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+generate();
+</script>
+</body>
+</html>
